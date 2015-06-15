@@ -25,8 +25,10 @@ import os.path
 import os
 import re
 import subprocess
+import subliminal
 
-def get_track_id(file):
+
+def get_mkv_track_id(file):
     """ Returns the track ID of the SRT subtitles track"""
     try:
         raw_info = subprocess.check_output(["mkvmerge", "-i", file])
@@ -39,45 +41,70 @@ def get_track_id(file):
         return (raw_info, m.group(1))
     else:
         return (raw_info, None)
-    
-def extract_subs(mkvs):
-    for mkv in mkvs:
-        if not mkv['srt_track_id']:
-            print("No subtitles for: {f}".format(f=mkv['filename']))
+
+
+def download_subs(file):
+    print("Downloading subs for {f}".format(f=file['filename']))
+    print("    full path: {f}".format(f=file['full_path']))
+    video = subliminal.scan_videos([file['full_path'], ], subtitles=False, embedded_subtitles=False)
+    subliminal.download_best_subtitles(video, {Language('eng')})
+
+
+def extract_mkv_subs(file):
+    print("Extracting subs for {f}".format(f=file['filename']))
+    try:
+        subprocess.call(["mkvextract", "tracks", file['full_path'], 
+                        file['srt_track_id'] + ":" + srt_full_path ])
+    except CalledProcessError as ex:
+        print("Error al extraer subtitules del archivo {f}: {e}".format(f=file['full_path'], e=ex))
+
+
+def extract_subs(files):
+    for file in files:
+        if file['srt_exists']:
             continue
-        srt_full_path = os.path.join(mkv['dir'], mkv['basename'] + ".srt")
-        if os.path.isfile(srt_full_path):
-            print("Subtitles already extracted for: {f}".format(f=mkv['filename']))
-            continue
-        print("----------")
-        print("Processing file {f}".format(f=mkv['filename']))
-        try:
-            subprocess.call(["mkvextract", "tracks", mkv['full_path'], 
-                    mkv['srt_track_id'] + ":" + srt_full_path ])
-        except CalledProcessError as ex:
-            print("Error al extraer subtitules del archivo {f}: {e}".format(f=mkv['full_path'], e=ex))
+        if not file['srt_track_id']:
+            print("No subtitles for: {f}".format(f=file['filename']))
+            download_subs(file)
+        else:
+            extract_mkv_subs(file)
+
 
 def main(argv):
+    supported_extensions = ['.mkv', '.mp4']
     if not argv:
         print("Error, no directory supplied")
         sys.exit(1)
     if not os.path.isdir(argv[1]):
         sys.exit("Error, {f} is not a directory".format(f=argv[1]))
-    mkv_list = []
+    file_list = []
     for root, dirs, files in os.walk(argv[1]):
         for name in files:
             (basename, ext) = os.path.splitext(name)
-            if ext == '.mkv':
-                (rawinfo, track_id) = get_track_id(os.path.join(root, name))
-                mkv_list.append({ 'filename': name,
-                                  'basename': basename,
-                                  'extension': ext,
-                                  'dir': root,
-                                  'full_path': os.path.join(root, name),
-                                  'srt_track_id': track_id,
-                                  'raw_info': rawinfo
-                                })
-    extract_subs(mkv_list)
+            if ext in supported_extensions:
+                print("Analyzing {f}".format(f=name))
+                if ext == 'mkv':
+                    (raw_track_info, track_id) = get_mkv_track_id(os.path.join(root, name))
+                else:
+                    raw_track_info = None
+                    track_id = None
+                srt_full_path = os.path.join(root, basename + ".srt")
+                if os.path.isfile(srt_full_path):
+                    srt_exists = True
+                else:
+                    srt_exists = False
+                file_list.append({ 'filename': name,
+                                   'basename': basename,
+                                   'extension': ext,
+                                   'dir': root,
+                                   'full_path': os.path.join(root, name),
+                                   'srt_track_id': track_id,
+                                   'srt_full_path': srt_full_path,
+                                   'srt_exists': srt_exists,
+                                   'raw_info': raw_track_info
+                                 })
+    extract_subs(file_list)
+
 
 if __name__ == '__main__':
     main(sys.argv)
