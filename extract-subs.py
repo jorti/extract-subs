@@ -17,15 +17,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-#mkvmerge -i file.mkv
-#mkvextract tracks file.mkv 2:subs.srt
-
 import sys
 import os.path
 import os
 import re
 import subprocess
-import subliminal
 
 
 def get_mkv_track_id(file):
@@ -45,9 +41,10 @@ def get_mkv_track_id(file):
 
 def download_subs(file):
     print("Downloading subs for {f}".format(f=file['filename']))
-    print("    full path: {f}".format(f=file['full_path']))
-    video = subliminal.scan_videos([file['full_path'], ], subtitles=False, embedded_subtitles=False)
-    subliminal.download_best_subtitles(video, {Language('eng')})
+    try:
+        subprocess.call(["subliminal", "-l", "en", "-s", file['full_path']])
+    except CalledProcessError as ex:
+        print("WARNING: Error downloading subtitules of file: {e}".format(f=file['full_path'], e=ex))
 
 
 def extract_mkv_subs(file):
@@ -56,18 +53,21 @@ def extract_mkv_subs(file):
         subprocess.call(["mkvextract", "tracks", file['full_path'], 
                         file['srt_track_id'] + ":" + srt_full_path ])
     except CalledProcessError as ex:
-        print("Error al extraer subtitules del archivo {f}: {e}".format(f=file['full_path'], e=ex))
+        print("WARNING: Error extracting subtitules of file {f}: {e}".format(f=file['full_path'], e=ex))
 
 
 def extract_subs(files):
     for file in files:
+        print("=====================")
+        print(file['filename'])
         if file['srt_exists']:
             continue
         if not file['srt_track_id']:
-            print("No subtitles for: {f}".format(f=file['filename']))
             download_subs(file)
-        else:
+        elif file['ext'] == '.mkv':
             extract_mkv_subs(file)
+        else:
+            print("WARNING: Cannot find any subtitles for: {f}".format(f=file['full_path']))
 
 
 def main(argv):
