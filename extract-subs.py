@@ -45,13 +45,13 @@ def get_mkv_track_id(file):
 
 
 def download_subs(file):
-    print("    Downloading subtitles...")
+    print("    Analyzing video file...")
     try:
         video = subliminal.scan_video(file['full_path'])
     except ValueError as ex:
         print("    Failed to analyze video. ", ex)
         return None
-    print("    Choosing subtitle...")
+    print("    Choosing subtitle from online providers...")
     best_subtitles = subliminal.download_best_subtitles([video], {Language('eng')})
     if best_subtitles[video]:
         sub = best_subtitles[video][0]
