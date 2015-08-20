@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Copyright 2014 Juan Orti Alcaine <juan.orti@miceliux.com>
+Copyright 2015 Juan Orti Alcaine <j.orti.alcaine@gmail.com>
 
 
 This program is free software: you can redistribute it and/or modify
