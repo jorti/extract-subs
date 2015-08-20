@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import subliminal
+from babelfish import Language
 
 
 def get_mkv_track_id(file):
@@ -44,29 +45,46 @@ def get_mkv_track_id(file):
 
 
 def download_subs(file):
-    print("Downloading subs for {f}".format(f=file['filename']))
-    print("    full path: {f}".format(f=file['full_path']))
-    video = subliminal.scan_videos([file['full_path'], ], subtitles=False, embedded_subtitles=False)
-    subliminal.download_best_subtitles(video, {Language('eng')})
+    print("    Downloading subtitles...")
+    try:
+        video = subliminal.scan_video(file['full_path'])
+    except ValueError as ex:
+        print("    Failed to analyze video. ", ex)
+        return None
+    print("    Choosing subtitle...")
+    best_subtitles = subliminal.download_best_subtitles([video], {Language('eng')})
+    if best_subtitles[video]:
+        sub = best_subtitles[video][0]
+        print("    Choosen subtitle: {f}".format(f=sub))
+        print("    Downloading...")
+        subliminal.save_subtitles(video, [sub])
+    else:
+        print("    No subtitles found online.")
 
 
 def extract_mkv_subs(file):
-    print("Extracting subs for {f}".format(f=file['filename']))
+    print("    Extracting embedded subtitles...")
     try:
         subprocess.call(["mkvextract", "tracks", file['full_path'], 
                         file['srt_track_id'] + ":" + srt_full_path ])
+        print("    OK.")
     except CalledProcessError as ex:
-        print("Error al extraer subtitules del archivo {f}: {e}".format(f=file['full_path'], e=ex))
+        print("    Error extracting subtitles")
 
 
 def extract_subs(files):
     for file in files:
+        print("*****************************")
+        print("Directory: {d}".format(d=file['dir']))
+        print("File: {f}".format(f=file['filename']))
         if file['srt_exists']:
+            print("    Subtitles ready. Nothing to do.")
             continue
         if not file['srt_track_id']:
-            print("No subtitles for: {f}".format(f=file['filename']))
+            print("    No embedded subtitles found.")
             download_subs(file)
         else:
+            print("    Embedded subtitles found.")
             extract_mkv_subs(file)
 
 
@@ -77,12 +95,16 @@ def main(argv):
         sys.exit(1)
     if not os.path.isdir(argv[1]):
         sys.exit("Error, {f} is not a directory".format(f=argv[1]))
+    global WDIR
+    WDIR = argv[1]
+    # configure the cache
+    my_region = subliminal.region.configure('dogpile.cache.dbm',
+            arguments={'filename': os.path.join(WDIR, 'cachefile.dbm')})
     file_list = []
-    for root, dirs, files in os.walk(argv[1]):
+    for root, dirs, files in os.walk(WDIR):
         for name in files:
             (basename, ext) = os.path.splitext(name)
             if ext in supported_extensions:
-                print("Analyzing {f}".format(f=name))
                 if ext == 'mkv':
                     (raw_track_info, track_id) = get_mkv_track_id(os.path.join(root, name))
                 else:
