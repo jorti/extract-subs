@@ -55,7 +55,7 @@ def download_subs(file):
         print("    Downloading...")
         save_subtitles(video, [sub], single=True)
     else:
-        print("    No subtitles found online.")
+        print("    ERROR: No subtitles found online.")
 
 
 def extract_mkv_subs(file, srt_full_path=None):
@@ -65,7 +65,7 @@ def extract_mkv_subs(file, srt_full_path=None):
                          file['srt_track_id'] + ":" + srt_full_path])
         print("    OK.")
     except subprocess.CalledProcessError:
-        print("    Error extracting subtitles")
+        print("    ERROR: Could not extract subtitles")
 
 
 def extract_subs(files):
@@ -85,7 +85,7 @@ def extract_subs(files):
 
 
 def main(argv):
-    supported_extensions = ['.mkv', '.mp4']
+    supported_extensions = ['.mkv', '.mp4', '.avi', '.mpg', '.mpeg']
     if not argv:
         print("Error, no directory supplied")
         sys.exit(1)
