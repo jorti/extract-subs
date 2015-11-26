@@ -93,9 +93,13 @@ def main(argv):
         sys.exit("Error, {f} is not a directory".format(f=argv[1]))
     global WDIR
     WDIR = argv[1]
+    cache_dir = os.path.join(os.getenv('HOME'), '.subliminal')
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    cache_file = os.path.join(cache_dir, 'subliminal.cachefile.dbm')
     # configure the cache
     my_region = region.configure('dogpile.cache.dbm',
-                                 arguments={'filename': os.path.join(WDIR, 'cachefile.dbm')})
+                                 arguments={'filename': cache_file})
     file_list = []
     for root, dirs, files in os.walk(WDIR):
         for name in files:
