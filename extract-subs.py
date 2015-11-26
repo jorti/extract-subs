@@ -17,15 +17,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-#mkvmerge -i file.mkv
-#mkvextract tracks file.mkv 2:subs.srt
-
 import sys
-import os.path
 import os
 import re
 import subprocess
-import subliminal
+from subliminal import save_subtitles, scan_video, region, download_best_subtitles
 from babelfish import Language
 
 
@@ -33,42 +29,42 @@ def get_mkv_track_id(file):
     """ Returns the track ID of the SRT subtitles track"""
     try:
         raw_info = subprocess.check_output(["mkvmerge", "-i", file])
-    except CalledProcessError as e:
-        print(e)
+    except subprocess.CalledProcessError as ex:
+        print(ex)
         sys.exit(1)
     pattern = re.compile('.*El ID de la pista (\d+): subtitles \(SubRip/SRT\).*', re.DOTALL)
     m = pattern.match(str(raw_info))
     if m:
-        return (raw_info, m.group(1))
+        return raw_info, m.group(1)
     else:
-        return (raw_info, None)
+        return raw_info, None
 
 
 def download_subs(file):
     print("    Analyzing video file...")
     try:
-        video = subliminal.scan_video(file['full_path'])
+        video = scan_video(file['full_path'])
     except ValueError as ex:
         print("    Failed to analyze video. ", ex)
         return None
     print("    Choosing subtitle from online providers...")
-    best_subtitles = subliminal.download_best_subtitles([video], {Language('eng')})
+    best_subtitles = download_best_subtitles([video], {Language('eng')})
     if best_subtitles[video]:
         sub = best_subtitles[video][0]
         print("    Choosen subtitle: {f}".format(f=sub))
         print("    Downloading...")
-        subliminal.save_subtitles(video, [sub])
+        save_subtitles(video, [sub], single=True)
     else:
         print("    No subtitles found online.")
 
 
-def extract_mkv_subs(file):
+def extract_mkv_subs(file, srt_full_path=None):
     print("    Extracting embedded subtitles...")
     try:
-        subprocess.call(["mkvextract", "tracks", file['full_path'], 
-                        file['srt_track_id'] + ":" + srt_full_path ])
+        subprocess.call(["mkvextract", "tracks", file['full_path'],
+                         file['srt_track_id'] + ":" + srt_full_path])
         print("    OK.")
-    except CalledProcessError as ex:
+    except subprocess.CalledProcessError:
         print("    Error extracting subtitles")
 
 
@@ -98,8 +94,8 @@ def main(argv):
     global WDIR
     WDIR = argv[1]
     # configure the cache
-    my_region = subliminal.region.configure('dogpile.cache.dbm',
-            arguments={'filename': os.path.join(WDIR, 'cachefile.dbm')})
+    my_region = region.configure('dogpile.cache.dbm',
+                                 arguments={'filename': os.path.join(WDIR, 'cachefile.dbm')})
     file_list = []
     for root, dirs, files in os.walk(WDIR):
         for name in files:
@@ -115,16 +111,16 @@ def main(argv):
                     srt_exists = True
                 else:
                     srt_exists = False
-                file_list.append({ 'filename': name,
-                                   'basename': basename,
-                                   'extension': ext,
-                                   'dir': root,
-                                   'full_path': os.path.join(root, name),
-                                   'srt_track_id': track_id,
-                                   'srt_full_path': srt_full_path,
-                                   'srt_exists': srt_exists,
-                                   'raw_info': raw_track_info
-                                 })
+                file_list.append({'filename': name,
+                                  'basename': basename,
+                                  'extension': ext,
+                                  'dir': root,
+                                  'full_path': os.path.join(root, name),
+                                  'srt_track_id': track_id,
+                                  'srt_full_path': srt_full_path,
+                                  'srt_exists': srt_exists,
+                                  'raw_info': raw_track_info
+                                  })
     extract_subs(file_list)
 
 
