@@ -48,7 +48,7 @@ def download_subs(file):
         print("    Failed to analyze video. ", ex)
         return None
     print("    Choosing subtitle from online providers...")
-    best_subtitles = download_best_subtitles([video], {Language('eng')})
+    best_subtitles = download_best_subtitles({video}, {Language('eng')}, only_one=True)
     if best_subtitles[video]:
         sub = best_subtitles[video][0]
         print("    Choosen subtitle: {f}".format(f=sub))
@@ -98,8 +98,7 @@ def main(argv):
         os.makedirs(cache_dir)
     cache_file = os.path.join(cache_dir, 'subliminal.cachefile.dbm')
     # configure the cache
-    my_region = region.configure('dogpile.cache.dbm',
-                                 arguments={'filename': cache_file})
+    region.configure('dogpile.cache.dbm', arguments={'filename': cache_file})
     file_list = []
     for root, dirs, files in os.walk(WDIR):
         for name in files:
