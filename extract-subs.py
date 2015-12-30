@@ -25,14 +25,15 @@ from subliminal import save_subtitles, scan_video, region, download_best_subtitl
 from babelfish import Language
 
 
-def get_mkv_track_id(file):
+def get_mkv_track_id(file_path):
     """ Returns the track ID of the SRT subtitles track"""
     try:
-        raw_info = subprocess.check_output(["mkvmerge", "-i", file])
+        raw_info = subprocess.check_output(["mkvmerge", "-i", file_path],
+                                            stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as ex:
         print(ex)
         sys.exit(1)
-    pattern = re.compile('.*El ID de la pista (\d+): subtitles \(SubRip/SRT\).*', re.DOTALL)
+    pattern = re.compile('.* (\d+): subtitles \(SubRip/SRT\).*', re.DOTALL)
     m = pattern.match(str(raw_info))
     if m:
         return raw_info, m.group(1)
@@ -58,11 +59,11 @@ def download_subs(file):
         print("    ERROR: No subtitles found online.")
 
 
-def extract_mkv_subs(file, srt_full_path=None):
+def extract_mkv_subs(file):
     print("    Extracting embedded subtitles...")
     try:
         subprocess.call(["mkvextract", "tracks", file['full_path'],
-                         file['srt_track_id'] + ":" + srt_full_path])
+                         file['srt_track_id'] + ":" + file['srt_full_path']])
         print("    OK.")
     except subprocess.CalledProcessError:
         print("    ERROR: Could not extract subtitles")
@@ -104,16 +105,13 @@ def main(argv):
         for name in files:
             (basename, ext) = os.path.splitext(name)
             if ext in supported_extensions:
-                if ext == 'mkv':
+                if ext == '.mkv':
                     (raw_track_info, track_id) = get_mkv_track_id(os.path.join(root, name))
                 else:
                     raw_track_info = None
                     track_id = None
                 srt_full_path = os.path.join(root, basename + ".srt")
-                if os.path.isfile(srt_full_path):
-                    srt_exists = True
-                else:
-                    srt_exists = False
+                srt_exists = os.path.isfile(srt_full_path)
                 file_list.append({'filename': name,
                                   'basename': basename,
                                   'extension': ext,
